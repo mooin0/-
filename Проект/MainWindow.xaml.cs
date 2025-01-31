@@ -2,92 +2,46 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Animation;
-using System.Windows.Media.Imaging;
-using System.Windows.Media.Media3D;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using System.Xml.Linq;
 
 namespace TaskTracker
 {
     public partial class MainWindow : Window
     {
         private List<TaskItem> tasks = new List<TaskItem>();
-        private int taskCounter = 1;
 
         public MainWindow()
         {
             InitializeComponent();
-            LoadTasks(); // Загружаем задачи при запуске приложения
-        }
-
-        private void LoadTasks()
-        {
-            if (File.Exists("tasks.txt"))
-            {
-                using (StreamReader reader = new StreamReader("tasks.txt"))
-                {
-                    string line;
-                    while ((line = reader.ReadLine()) != null)
-                    {
-                        var parts = line.Split('|');
-                        if (parts.Length == 3 && int.TryParse(parts[0], out int number) && bool.TryParse(parts[2], out bool isCompleted))
-                        {
-                            tasks.Add(new TaskItem { Number = number, Description = parts[1], IsCompleted = isCompleted });
-                            if (number >= taskCounter) // Обновляем счетчик задач
-                            {
-                                taskCounter = number + 1;
-                            }
-                        }
-                    }
-                }
-                UpdateTaskList(); // Обновляем список задач после загрузки
-            }
+            LoadTasks();
         }
 
         private void AddTask_Click(object sender, RoutedEventArgs e)
         {
             if (!string.IsNullOrWhiteSpace(TaskInput.Text))
             {
-                tasks.Add(new TaskItem { Description = TaskInput.Text, IsCompleted = false, Number = taskCounter++ });
-                TaskInput.Clear();
-                UpdateTaskList();
-            }
-        }
-
-        private void UpdateTaskList()
-        {
-            TaskList.Items.Clear();
-            foreach (var task in tasks)
-            {
+                var task = new TaskItem { Id = tasks.Count + 1, Description = TaskInput.Text, IsCompleted = false };
+                tasks.Add(task);
                 TaskList.Items.Add(task);
+                TaskInput.Clear();
             }
-        }
-
-        private void TaskList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-        {
-            // Здесь можно оставить как есть: выделение элемента
         }
 
         private void DeleteTask_Click(object sender, RoutedEventArgs e)
         {
             if (TaskList.SelectedItem is TaskItem selectedTask)
             {
-                tasks.Remove(selectedTask); // Удаляем выбранную задачу
-                UpdateTaskList(); // Обновляем список задач
+                tasks.Remove(selectedTask);
+                TaskList.Items.Remove(selectedTask);
             }
-            else
+        }
+
+        private void TaskList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (TaskList.SelectedItem is TaskItem selectedTask)
             {
-                MessageBox.Show("Пожалуйста, выберите задачу для удаления."); // Сообщение, если ничего не выбрано
+                selectedTask.IsCompleted = !selectedTask.IsCompleted;
+                TaskList.Items.Refresh();
             }
         }
 
@@ -97,22 +51,41 @@ namespace TaskTracker
             {
                 foreach (var task in tasks)
                 {
-                    writer.WriteLine($"{task.Number}|{task.Description}|{task.IsCompleted}");
+                    writer.WriteLine($"{task.Id};{task.Description};{task.IsCompleted}");
                 }
             }
             MessageBox.Show("Задачи сохранены в файл tasks.txt");
+        }
+
+        private void LoadTasks()
+        {
+            if (File.Exists("tasks.txt"))
+            {
+                var lines = File.ReadAllLines("tasks.txt");
+                foreach (var line in lines)
+                {
+                    var parts = line.Split(';');
+                    if (parts.Length == 3 && int.TryParse(parts[0], out int id) && bool.TryParse(parts[2], out bool isCompleted))
+                    {
+                        var task = new TaskItem { Id = id, Description = parts[1], IsCompleted = isCompleted };
+                        tasks.Add(task);
+                        TaskList.Items.Add(task);
+                    }
+                }
+
+            }
         }
     }
 
     public class TaskItem
     {
-        public int Number { get; set; }
+        public int Id { get; set; }
         public string Description { get; set; }
         public bool IsCompleted { get; set; }
 
         public override string ToString()
         {
-            return $"{Number}. {Description} - {(IsCompleted ? "Выполнено" : "Не выполнено")}";
+            return $"{Id}. {Description} (Выполнено: {IsCompleted})";
         }
     }
 }
